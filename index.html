@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>锻炼计时器 · 收缩 / 放开</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { height: 100%; }
+  body {
+    font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+    background: linear-gradient(160deg, #1a2a3a 0%, #0f1720 100%);
+    color: #eef4f8;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 100%;
+    overflow: hidden;
+    user-select: none;
+  }
+
+  h1 { font-size: 20px; font-weight: 500; opacity: .75; margin-bottom: 28px; letter-spacing: 2px; }
+
+  /* 圆圈舞台 */
+  .stage {
+    position: relative;
+    width: 320px; height: 320px;
+    display: flex; align-items: center; justify-content: center;
+    margin-bottom: 34px;
+  }
+  .circle {
+    position: absolute;
+    width: 300px; height: 300px;
+    border-radius: 50%;
+    background: radial-gradient(circle at 35% 30%, #4fd1c5, #2b8a9e 60%, #1f6172);
+    box-shadow: 0 0 60px rgba(79,209,197,.35);
+    /* 默认缩放,由 JS 控制过渡时长 */
+    transform: scale(0.5);
+    transition: transform linear;
+  }
+  .center-text {
+    position: relative;
+    z-index: 2;
+    text-align: center;
+    pointer-events: none;
+  }
+  .action { font-size: 40px; font-weight: 700; letter-spacing: 4px; }
+  .count  { font-size: 56px; font-weight: 300; margin-top: 4px; font-variant-numeric: tabular-nums; }
+
+  /* 控制区 */
+  .panel { display: flex; flex-direction: column; align-items: center; gap: 20px; }
+  .field { display: flex; align-items: center; gap: 12px; font-size: 17px; }
+  .field label { opacity: .8; }
+  .stepper { display: flex; align-items: center; gap: 6px; }
+  .stepper button {
+    width: 40px; height: 40px; border-radius: 10px; border: none;
+    background: #2b3b4a; color: #eef4f8; font-size: 24px; cursor: pointer;
+  }
+  .stepper button:active { background: #3a5164; }
+  .stepper input {
+    width: 64px; height: 40px; text-align: center; font-size: 20px;
+    border-radius: 10px; border: 1px solid #3a5164; background: #131f29; color: #eef4f8;
+  }
+  .unit { opacity: .7; font-size: 16px; }
+  .btn-main {
+    padding: 14px 54px; font-size: 20px; border: none; border-radius: 40px;
+    background: #4fd1c5; color: #08222a; font-weight: 700; cursor: pointer;
+    box-shadow: 0 6px 20px rgba(79,209,197,.35); letter-spacing: 2px;
+  }
+  .btn-main:active { transform: translateY(1px); }
+  .btn-stop { background: #e07a7a; box-shadow: 0 6px 20px rgba(224,122,122,.35); }
+  .progress { font-size: 15px; opacity: .6; height: 18px; }
+  .hidden { display: none !important; }
+</style>
+</head>
+<body>
+  <h1>锻炼计时器</h1>
+
+  <div class="stage">
+    <div class="circle" id="circle"></div>
+    <div class="center-text">
+      <div class="action" id="action">准备</div>
+      <div class="count" id="count"></div>
+    </div>
+  </div>
+
+  <div class="progress" id="progress"></div>
+
+  <!-- 设置面板 -->
+  <div class="panel" id="panel">
+    <div class="field">
+      <label>组数</label>
+      <div class="stepper">
+        <button id="minus">−</button>
+        <input id="sets" type="number" min="1" max="99" value="5">
+        <button id="plus">+</button>
+      </div>
+    </div>
+    <div class="field">
+      <label>收缩</label>
+      <div class="stepper">
+        <input id="contractSec" type="number" min="1" max="60" value="5">
+        <span class="unit">秒</span>
+      </div>
+      <label style="margin-left:14px">放开</label>
+      <div class="stepper">
+        <input id="releaseSec" type="number" min="1" max="60" value="5">
+        <span class="unit">秒</span>
+      </div>
+    </div>
+    <button class="btn-main" id="start">开始</button>
+  </div>
+
+  <!-- 运行时的停止按钮 -->
+  <button class="btn-main btn-stop hidden" id="stop">停止</button>
+
+<script>
+  // ===== 配置 =====
+  const PREP_SECONDS   = 4;   // 准备倒计时
+  const SCALE_SMALL    = 0.45;
+  const SCALE_LARGE    = 1.0;
+
+  // 运行时读取的时长(点开始时从输入框取值)
+  let contractSec = 5;
+  let releaseSec  = 5;
+
+  // ===== 元素 =====
+  const circle   = document.getElementById('circle');
+  const actionEl = document.getElementById('action');
+  const countEl  = document.getElementById('count');
+  const progress = document.getElementById('progress');
+  const panel    = document.getElementById('panel');
+  const setsInput= document.getElementById('sets');
+  const contractInput = document.getElementById('contractSec');
+  const releaseInput  = document.getElementById('releaseSec');
+  const startBtn = document.getElementById('start');
+  const stopBtn  = document.getElementById('stop');
+
+  let timers = [];          // 保存所有定时器,便于停止时清空
+  let running = false;
+
+  // ===== 语音提示 =====
+  let voiceReady = false;
+  // 在用户手势(点击开始)内调用一次,"解锁"移动端语音
+  function unlockSpeech() {
+    if (!('speechSynthesis' in window)) return;
+    // 播放一段近乎无声的极短语音,用于解除 iOS/Safari 的自动播放限制
+    const warmup = new SpeechSynthesisUtterance(' ');
+    warmup.volume = 0;
+    speechSynthesis.speak(warmup);
+    voiceReady = true;
+  }
+
+  function speak(text) {
+    if (!('speechSynthesis' in window)) return;
+    speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = 'zh-CN';
+    u.rate = 1;
+    u.volume = 1;
+    speechSynthesis.speak(u);
+  }
+
+  // 统一的延时封装,便于统一清理
+  function later(fn, ms) {
+    const id = setTimeout(fn, ms);
+    timers.push(id);
+    return id;
+  }
+  function clearAllTimers() {
+    timers.forEach(clearTimeout);
+    timers = [];
+    if ('speechSynthesis' in window) speechSynthesis.cancel();
+  }
+
+  // ===== 组数加减 =====
+  function clampSets() {
+    let v = parseInt(setsInput.value, 10);
+    if (isNaN(v) || v < 1) v = 1;
+    if (v > 99) v = 99;
+    setsInput.value = v;
+    return v;
+  }
+  document.getElementById('plus').onclick  = () => { setsInput.value = clampSets() + 1; clampSets(); };
+  document.getElementById('minus').onclick = () => { setsInput.value = clampSets() - 1; clampSets(); };
+  setsInput.onchange = clampSets;
+
+  // 时长范围校验(1~60 秒)
+  function clampSec(input) {
+    let v = parseInt(input.value, 10);
+    if (isNaN(v) || v < 1) v = 1;
+    if (v > 60) v = 60;
+    input.value = v;
+    return v;
+  }
+  contractInput.onchange = () => clampSec(contractInput);
+  releaseInput.onchange  = () => clampSec(releaseInput);
+
+  // ===== 圆圈缩放(带指定过渡时长) =====
+  function setCircle(scale, durationSec) {
+    circle.style.transition = `transform ${durationSec}s linear`;
+    // 强制触发重绘,确保过渡生效
+    void circle.offsetWidth;
+    circle.style.transform = `scale(${scale})`;
+  }
+
+  // 倒计时数字:每秒更新一次
+  function countdown(seconds, onTick) {
+    let n = seconds;
+    onTick(n);
+    for (let i = 1; i <= seconds; i++) {
+      later(() => onTick(n - i), i * 1000);
+    }
+  }
+
+  // ===== 主流程 =====
+  function start() {
+    unlockSpeech();               // 关键:在用户点击手势内解锁移动端语音
+    const totalSets = clampSets();
+    contractSec = clampSec(contractInput);
+    releaseSec  = clampSec(releaseInput);
+    running = true;
+    panel.classList.add('hidden');
+    stopBtn.classList.remove('hidden');
+
+    // 准备阶段
+    actionEl.textContent = '准备';
+    setCircle((SCALE_SMALL + SCALE_LARGE) / 2, 0.3);
+    progress.textContent = `共 ${totalSets} 组`;
+    countdown(PREP_SECONDS, n => { countEl.textContent = n > 0 ? n : ''; });
+
+    // 准备结束后开始第一组
+    later(() => runSet(1, totalSets), PREP_SECONDS * 1000);
+  }
+
+  // 执行第 index 组(共 total 组)
+  function runSet(index, total) {
+    if (!running) return;
+    progress.textContent = `第 ${index} / ${total} 组`;
+
+    // —— 收缩(圆圈缩小) ——
+    speak('收缩');
+    actionEl.textContent = '收缩';
+    setCircle(SCALE_SMALL, contractSec);
+    countdown(contractSec, n => { countEl.textContent = n > 0 ? n : ''; });
+
+    // —— 放开(圆圈放大) ——
+    later(() => {
+      if (!running) return;
+      speak('放开');
+      actionEl.textContent = '放开';
+      setCircle(SCALE_LARGE, releaseSec);
+      countdown(releaseSec, n => { countEl.textContent = n > 0 ? n : ''; });
+    }, contractSec * 1000);
+
+    // —— 本组结束,进入下一组或收尾 ——
+    later(() => {
+      if (!running) return;
+      if (index < total) {
+        runSet(index + 1, total);
+      } else {
+        finish();
+      }
+    }, (contractSec + releaseSec) * 1000);
+  }
+
+  function finish() {
+    running = false;
+    clearAllTimers();
+    speak('完成');
+    actionEl.textContent = '完成!';
+    countEl.textContent = '🎉';
+    progress.textContent = '做得好,休息一下';
+    setCircle((SCALE_SMALL + SCALE_LARGE) / 2, 0.5);
+    stopBtn.classList.add('hidden');
+    panel.classList.remove('hidden');
+    startBtn.textContent = '再来一组';
+  }
+
+  function stop() {
+    running = false;
+    clearAllTimers();
+    actionEl.textContent = '已停止';
+    countEl.textContent = '';
+    progress.textContent = '';
+    setCircle((SCALE_SMALL + SCALE_LARGE) / 2, 0.3);
+    stopBtn.classList.add('hidden');
+    panel.classList.remove('hidden');
+    startBtn.textContent = '开始';
+  }
+
+  startBtn.onclick = start;
+  stopBtn.onclick  = stop;
+
+  // 初始圆圈状态
+  setCircle((SCALE_SMALL + SCALE_LARGE) / 2, 0.3);
+</script>
+</body>
+</html>
