@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-<title>锻炼计时器 · 收缩 / 放开</title>
+<title>训练助手</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
   html, body { height: 100%; }
@@ -11,290 +11,359 @@
     font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
     background: linear-gradient(160deg, #1a2a3a 0%, #0f1720 100%);
     color: #eef4f8;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    min-height: 100%;
-    overflow: hidden;
-    user-select: none;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    min-height: 100%; overflow: hidden; user-select: none; padding: 20px;
   }
+  .hidden { display: none !important; }
 
-  h1 { font-size: 20px; font-weight: 500; opacity: .75; margin-bottom: 28px; letter-spacing: 2px; }
+  h1 { font-size: 22px; font-weight: 500; opacity: .8; margin-bottom: 30px; letter-spacing: 3px; }
+  h2 { font-size: 24px; font-weight: 600; margin-bottom: 26px; letter-spacing: 2px; }
 
-  /* 圆圈舞台 */
-  .stage {
-    position: relative;
-    width: 320px; height: 320px;
-    display: flex; align-items: center; justify-content: center;
-    margin-bottom: 34px;
+  /* ===== 主菜单 ===== */
+  #menu { display: flex; flex-direction: column; align-items: center; }
+  .menu-list { display: flex; flex-direction: column; gap: 14px; width: 260px; }
+  .menu-item {
+    display: flex; align-items: center; gap: 14px;
+    padding: 18px 22px; border-radius: 16px; border: none;
+    background: #22303d; color: #eef4f8; font-size: 20px; cursor: pointer;
+    transition: background .15s;
   }
-  .circle {
-    position: absolute;
-    width: 300px; height: 300px;
-    border-radius: 50%;
-    background: radial-gradient(circle at 35% 30%, #4fd1c5, #2b8a9e 60%, #1f6172);
-    box-shadow: 0 0 60px rgba(79,209,197,.35);
-    /* 默认缩放,由 JS 控制过渡时长 */
-    transform: scale(0.5);
-    transition: transform linear;
-  }
-  .center-text {
-    position: relative;
-    z-index: 2;
-    text-align: center;
-    pointer-events: none;
-  }
-  .action { font-size: 40px; font-weight: 700; letter-spacing: 4px; }
-  .count  { font-size: 56px; font-weight: 300; margin-top: 4px; font-variant-numeric: tabular-nums; }
+  .menu-item:active { background: #2f4353; }
+  .menu-item .emoji { font-size: 26px; }
 
-  /* 控制区 */
-  .panel { display: flex; flex-direction: column; align-items: center; gap: 20px; }
-  .field { display: flex; align-items: center; gap: 12px; font-size: 17px; }
-  .field label { opacity: .8; }
-  .stepper { display: flex; align-items: center; gap: 6px; }
+  /* ===== 设置页 ===== */
+  #setup, #active { display: flex; flex-direction: column; align-items: center; width: 100%; }
+  .fields { display: flex; flex-direction: column; gap: 18px; margin-bottom: 30px; }
+  .field { display: flex; align-items: center; justify-content: space-between; gap: 18px; font-size: 18px; }
+  .field > label { opacity: .85; min-width: 72px; }
+  .stepper { display: flex; align-items: center; gap: 8px; }
   .stepper button {
-    width: 40px; height: 40px; border-radius: 10px; border: none;
+    width: 42px; height: 42px; border-radius: 10px; border: none;
     background: #2b3b4a; color: #eef4f8; font-size: 24px; cursor: pointer;
   }
   .stepper button:active { background: #3a5164; }
   .stepper input {
-    width: 64px; height: 40px; text-align: center; font-size: 20px;
+    width: 72px; height: 42px; text-align: center; font-size: 20px;
     border-radius: 10px; border: 1px solid #3a5164; background: #131f29; color: #eef4f8;
+    font-variant-numeric: tabular-nums;
   }
-  .unit { opacity: .7; font-size: 16px; }
+
+  /* ===== 运行页 ===== */
+  .stage {
+    position: relative; width: 300px; height: 300px;
+    display: flex; align-items: center; justify-content: center; margin-bottom: 30px;
+  }
+  .circle {
+    position: absolute; width: 300px; height: 300px; border-radius: 50%;
+    background: radial-gradient(circle at 35% 30%, #4fd1c5, #2b8a9e 60%, #1f6172);
+    box-shadow: 0 0 60px rgba(79,209,197,.35);
+    transform: scale(0.7); transition: transform linear;
+  }
+  .center-text { position: relative; z-index: 2; text-align: center; pointer-events: none; }
+  .action { font-size: 34px; font-weight: 700; letter-spacing: 3px; }
+  .count  { font-size: 60px; font-weight: 300; margin-top: 4px; font-variant-numeric: tabular-nums; }
+  .progress { font-size: 15px; opacity: .6; height: 20px; margin-bottom: 10px; }
+
+  /* ===== 按钮 ===== */
   .btn-main {
-    padding: 14px 54px; font-size: 20px; border: none; border-radius: 40px;
+    padding: 14px 50px; font-size: 20px; border: none; border-radius: 40px;
     background: #4fd1c5; color: #08222a; font-weight: 700; cursor: pointer;
-    box-shadow: 0 6px 20px rgba(79,209,197,.35); letter-spacing: 2px;
+    box-shadow: 0 6px 20px rgba(79,209,197,.35); letter-spacing: 2px; margin: 6px 0;
   }
   .btn-main:active { transform: translateY(1px); }
   .btn-stop { background: #e07a7a; box-shadow: 0 6px 20px rgba(224,122,122,.35); }
-  .progress { font-size: 15px; opacity: .6; height: 18px; }
-  .hidden { display: none !important; }
+  .btn-secondary { background: #33475a; color: #eef4f8; box-shadow: none; }
+  .btn-back {
+    align-self: flex-start; background: none; border: none; color: #8fb3c8;
+    font-size: 16px; cursor: pointer; margin-bottom: 10px;
+  }
+  .controls { display: flex; flex-direction: column; align-items: center; }
 </style>
 </head>
 <body>
-  <h1>锻炼计时器</h1>
 
-  <div class="stage">
-    <div class="circle" id="circle"></div>
-    <div class="center-text">
-      <div class="action" id="action">准备</div>
-      <div class="count" id="count"></div>
-    </div>
+  <!-- ===== 主菜单 ===== -->
+  <div id="menu">
+    <h1>训练助手</h1>
+    <div class="menu-list" id="menuList"></div>
   </div>
 
-  <div class="progress" id="progress"></div>
-
-  <!-- 设置面板 -->
-  <div class="panel" id="panel">
-    <div class="field">
-      <label>组数</label>
-      <div class="stepper">
-        <button id="minus">−</button>
-        <input id="sets" type="number" min="1" max="99" value="5">
-        <button id="plus">+</button>
-      </div>
-    </div>
-    <div class="field">
-      <label>收缩</label>
-      <div class="stepper">
-        <input id="contractSec" type="number" min="1" max="60" value="5">
-        <span class="unit">秒</span>
-      </div>
-      <label style="margin-left:14px">放开</label>
-      <div class="stepper">
-        <input id="releaseSec" type="number" min="1" max="60" value="5">
-        <span class="unit">秒</span>
-      </div>
-    </div>
-    <button class="btn-main" id="start">开始</button>
+  <!-- ===== 设置页 ===== -->
+  <div id="setup" class="hidden">
+    <button class="btn-back" id="setupBack">‹ 返回</button>
+    <h2 id="setupTitle"></h2>
+    <div class="fields" id="fields"></div>
+    <button class="btn-main" id="startBtn">开始</button>
   </div>
 
-  <!-- 运行时的停止按钮 -->
-  <button class="btn-main btn-stop hidden" id="stop">停止</button>
+  <!-- ===== 运行页 ===== -->
+  <div id="active" class="hidden">
+    <div class="progress" id="progress"></div>
+    <div class="stage">
+      <div class="circle" id="circle"></div>
+      <div class="center-text">
+        <div class="action" id="action"></div>
+        <div class="count" id="count"></div>
+      </div>
+    </div>
+    <div class="controls" id="activeControls">
+      <button class="btn-main hidden" id="doneBtn">完成</button>
+      <button class="btn-main btn-stop" id="stopBtn">停止</button>
+    </div>
+    <div class="controls hidden" id="finishControls">
+      <button class="btn-main" id="againBtn">再来一次</button>
+      <button class="btn-main btn-secondary" id="menuBtn">返回菜单</button>
+    </div>
+  </div>
 
 <script>
-  // ===== 配置 =====
-  const PREP_SECONDS   = 4;   // 准备倒计时
-  const SCALE_SMALL    = 0.45;
-  const SCALE_LARGE    = 1.0;
+  // ===== 训练定义 =====
+  const EXERCISES = {
+    breathing: { name: '呼吸训练', type: 'breathing', emoji: '🫁' },
+    plank:     { name: '平板支撑', type: 'time',      emoji: '🧘' },
+    pushup:    { name: '俯卧撑',   type: 'count',     emoji: '💪' },
+    situp:     { name: '仰卧起坐', type: 'count',     emoji: '🔥' },
+    squat:     { name: '深蹲',     type: 'count',     emoji: '🦵' },
+  };
 
-  // 运行时读取的时长(点开始时从输入框取值)
-  let contractSec = 5;
-  let releaseSec  = 5;
+  // 每个训练的可设置项
+  const FIELDS = {
+    breathing: [
+      { id: 'sets',     label: '组数',    def: 5, min: 1, max: 99 },
+      { id: 'contract', label: '收缩(秒)', def: 5, min: 1, max: 60 },
+      { id: 'release',  label: '放开(秒)', def: 5, min: 1, max: 60 },
+    ],
+    plank:  [ { id: 'duration', label: '时长(秒)', def: 60, min: 5, max: 600 } ],
+    pushup: [ { id: 'count',    label: '个数',     def: 20, min: 1, max: 999 } ],
+    situp:  [ { id: 'count',    label: '个数',     def: 20, min: 1, max: 999 } ],
+    squat:  [ { id: 'count',    label: '个数',     def: 20, min: 1, max: 999 } ],
+  };
+
+  const PREP_SECONDS = 4;
+  const SCALE_SMALL  = 0.45;
+  const SCALE_LARGE  = 1.0;
 
   // ===== 元素 =====
+  const menuView   = document.getElementById('menu');
+  const setupView  = document.getElementById('setup');
+  const activeView = document.getElementById('active');
+  const menuList   = document.getElementById('menuList');
+  const setupTitle = document.getElementById('setupTitle');
+  const fieldsWrap = document.getElementById('fields');
   const circle   = document.getElementById('circle');
   const actionEl = document.getElementById('action');
   const countEl  = document.getElementById('count');
   const progress = document.getElementById('progress');
-  const panel    = document.getElementById('panel');
-  const setsInput= document.getElementById('sets');
-  const contractInput = document.getElementById('contractSec');
-  const releaseInput  = document.getElementById('releaseSec');
-  const startBtn = document.getElementById('start');
-  const stopBtn  = document.getElementById('stop');
+  const activeControls = document.getElementById('activeControls');
+  const finishControls = document.getElementById('finishControls');
+  const doneBtn  = document.getElementById('doneBtn');
+  const stopBtn  = document.getElementById('stopBtn');
 
-  let timers = [];          // 保存所有定时器,便于停止时清空
+  let currentKey = null;
+  let currentSettings = {};
+  let timers = [];
   let running = false;
 
-  // ===== 语音提示 =====
-  let voiceReady = false;
-  // 在用户手势(点击开始)内调用一次,"解锁"移动端语音
+  // ===== 语音 =====
   function unlockSpeech() {
     if (!('speechSynthesis' in window)) return;
-    // 播放一段近乎无声的极短语音,用于解除 iOS/Safari 的自动播放限制
     const warmup = new SpeechSynthesisUtterance(' ');
     warmup.volume = 0;
     speechSynthesis.speak(warmup);
-    voiceReady = true;
   }
-
   function speak(text) {
     if (!('speechSynthesis' in window)) return;
     speechSynthesis.cancel();
     const u = new SpeechSynthesisUtterance(text);
-    u.lang = 'zh-CN';
-    u.rate = 1;
-    u.volume = 1;
+    u.lang = 'zh-CN'; u.rate = 1; u.volume = 1;
     speechSynthesis.speak(u);
   }
 
-  // 统一的延时封装,便于统一清理
-  function later(fn, ms) {
-    const id = setTimeout(fn, ms);
-    timers.push(id);
-    return id;
-  }
+  // ===== 定时器工具 =====
+  function later(fn, ms) { const id = setTimeout(fn, ms); timers.push(id); return id; }
   function clearAllTimers() {
-    timers.forEach(clearTimeout);
-    timers = [];
+    timers.forEach(clearTimeout); timers = [];
     if ('speechSynthesis' in window) speechSynthesis.cancel();
   }
-
-  // ===== 组数加减 =====
-  function clampSets() {
-    let v = parseInt(setsInput.value, 10);
-    if (isNaN(v) || v < 1) v = 1;
-    if (v > 99) v = 99;
-    setsInput.value = v;
-    return v;
+  function countdown(seconds, onTick) {
+    onTick(seconds);
+    for (let i = 1; i <= seconds; i++) later(() => onTick(seconds - i), i * 1000);
   }
-  document.getElementById('plus').onclick  = () => { setsInput.value = clampSets() + 1; clampSets(); };
-  document.getElementById('minus').onclick = () => { setsInput.value = clampSets() - 1; clampSets(); };
-  setsInput.onchange = clampSets;
-
-  // 时长范围校验(1~60 秒)
-  function clampSec(input) {
-    let v = parseInt(input.value, 10);
-    if (isNaN(v) || v < 1) v = 1;
-    if (v > 60) v = 60;
-    input.value = v;
-    return v;
-  }
-  contractInput.onchange = () => clampSec(contractInput);
-  releaseInput.onchange  = () => clampSec(releaseInput);
-
-  // ===== 圆圈缩放(带指定过渡时长) =====
   function setCircle(scale, durationSec) {
     circle.style.transition = `transform ${durationSec}s linear`;
-    // 强制触发重绘,确保过渡生效
     void circle.offsetWidth;
     circle.style.transform = `scale(${scale})`;
   }
 
-  // 倒计时数字:每秒更新一次
-  function countdown(seconds, onTick) {
-    let n = seconds;
-    onTick(n);
-    for (let i = 1; i <= seconds; i++) {
-      later(() => onTick(n - i), i * 1000);
-    }
+  // ===== 设置的保存 / 读取(localStorage) =====
+  function loadVal(key, id, def) {
+    const v = localStorage.getItem(`bt_${key}_${id}`);
+    return v === null ? def : parseInt(v, 10);
+  }
+  function saveVal(key, id, val) { localStorage.setItem(`bt_${key}_${id}`, val); }
+
+  // ===== 视图切换 =====
+  function show(view) {
+    [menuView, setupView, activeView].forEach(v => v.classList.add('hidden'));
+    view.classList.remove('hidden');
   }
 
-  // ===== 主流程 =====
-  function start() {
-    unlockSpeech();               // 关键:在用户点击手势内解锁移动端语音
-    const totalSets = clampSets();
-    contractSec = clampSec(contractInput);
-    releaseSec  = clampSec(releaseInput);
-    running = true;
-    panel.classList.add('hidden');
-    stopBtn.classList.remove('hidden');
+  function showMenu() {
+    running = false; clearAllTimers();
+    show(menuView);
+  }
 
-    // 准备阶段
+  // ===== 构建主菜单 =====
+  Object.keys(EXERCISES).forEach(key => {
+    const ex = EXERCISES[key];
+    const btn = document.createElement('button');
+    btn.className = 'menu-item';
+    btn.innerHTML = `<span class="emoji">${ex.emoji}</span><span>${ex.name}</span>`;
+    btn.onclick = () => openSetup(key);
+    menuList.appendChild(btn);
+  });
+
+  // ===== 打开设置页 =====
+  function openSetup(key) {
+    currentKey = key;
+    setupTitle.textContent = EXERCISES[key].name;
+    fieldsWrap.innerHTML = '';
+    FIELDS[key].forEach(f => {
+      const saved = loadVal(key, f.id, f.def);
+      const row = document.createElement('div');
+      row.className = 'field';
+      row.innerHTML = `
+        <label>${f.label}</label>
+        <div class="stepper">
+          <button data-act="dec">−</button>
+          <input type="number" id="fld_${f.id}" min="${f.min}" max="${f.max}" value="${saved}">
+          <button data-act="inc">+</button>
+        </div>`;
+      const input = row.querySelector('input');
+      const clamp = () => {
+        let v = parseInt(input.value, 10);
+        if (isNaN(v) || v < f.min) v = f.min;
+        if (v > f.max) v = f.max;
+        input.value = v; return v;
+      };
+      row.querySelector('[data-act="dec"]').onclick = () => { input.value = clamp() - 1; clamp(); };
+      row.querySelector('[data-act="inc"]').onclick = () => { input.value = clamp() + 1; clamp(); };
+      input.onchange = clamp;
+      fieldsWrap.appendChild(row);
+    });
+    show(setupView);
+  }
+
+  // ===== 从设置页开始 =====
+  function beginFromSetup() {
+    unlockSpeech();                       // 关键:用户手势内解锁移动端语音
+    currentSettings = {};
+    FIELDS[currentKey].forEach(f => {
+      const input = document.getElementById(`fld_${f.id}`);
+      let v = parseInt(input.value, 10);
+      if (isNaN(v) || v < f.min) v = f.min;
+      if (v > f.max) v = f.max;
+      currentSettings[f.id] = v;
+      saveVal(currentKey, f.id, v);
+    });
+    startCurrent();
+  }
+
+  // ===== 进入运行页并启动对应训练 =====
+  function startCurrent() {
+    const type = EXERCISES[currentKey].type;
+    running = true;
+    show(activeView);
+    finishControls.classList.add('hidden');
+    activeControls.classList.remove('hidden');
+    // 计次类显示"完成"主按钮,停止按钮改叫"返回"
+    doneBtn.classList.toggle('hidden', type !== 'count');
+    stopBtn.textContent = (type === 'count') ? '返回' : '停止';
+
+    if (type === 'breathing') runBreathing(currentSettings);
+    else if (type === 'time') runTime(currentSettings);
+    else runCount(currentSettings);
+  }
+
+  // ===== 呼吸训练 =====
+  function runBreathing(s) {
     actionEl.textContent = '准备';
     setCircle((SCALE_SMALL + SCALE_LARGE) / 2, 0.3);
-    progress.textContent = `共 ${totalSets} 组`;
+    progress.textContent = `呼吸训练 · 共 ${s.sets} 组`;
     countdown(PREP_SECONDS, n => { countEl.textContent = n > 0 ? n : ''; });
-
-    // 准备结束后开始第一组
-    later(() => runSet(1, totalSets), PREP_SECONDS * 1000);
+    later(() => runSet(1, s), PREP_SECONDS * 1000);
   }
-
-  // 执行第 index 组(共 total 组)
-  function runSet(index, total) {
+  function runSet(index, s) {
     if (!running) return;
-    progress.textContent = `第 ${index} / ${total} 组`;
-
-    // —— 收缩(圆圈缩小) ——
+    progress.textContent = `第 ${index} / ${s.sets} 组`;
+    // 收缩
     speak('收缩');
     actionEl.textContent = '收缩';
-    setCircle(SCALE_SMALL, contractSec);
-    countdown(contractSec, n => { countEl.textContent = n > 0 ? n : ''; });
-
-    // —— 放开(圆圈放大) ——
+    setCircle(SCALE_SMALL, s.contract);
+    countdown(s.contract, n => { countEl.textContent = n > 0 ? n : ''; });
+    // 放开
     later(() => {
       if (!running) return;
       speak('放开');
       actionEl.textContent = '放开';
-      setCircle(SCALE_LARGE, releaseSec);
-      countdown(releaseSec, n => { countEl.textContent = n > 0 ? n : ''; });
-    }, contractSec * 1000);
-
-    // —— 本组结束,进入下一组或收尾 ——
+      setCircle(SCALE_LARGE, s.release);
+      countdown(s.release, n => { countEl.textContent = n > 0 ? n : ''; });
+    }, s.contract * 1000);
+    // 下一组 / 收尾
     later(() => {
       if (!running) return;
-      if (index < total) {
-        runSet(index + 1, total);
-      } else {
-        finish();
-      }
-    }, (contractSec + releaseSec) * 1000);
+      if (index < s.sets) runSet(index + 1, s);
+      else finish();
+    }, (s.contract + s.release) * 1000);
   }
 
+  // ===== 平板支撑(按时间倒计时) =====
+  function runTime(s) {
+    actionEl.textContent = '准备';
+    setCircle(0.7, 0.3);
+    progress.textContent = `平板支撑 · ${s.duration} 秒`;
+    countdown(PREP_SECONDS, n => { countEl.textContent = n > 0 ? n : ''; });
+    later(() => {
+      if (!running) return;
+      speak('开始');
+      actionEl.textContent = '坚持';
+      setCircle(0.85, 0.3);
+      countdown(s.duration, n => { countEl.textContent = n > 0 ? n : ''; });
+    }, PREP_SECONDS * 1000);
+    later(() => { if (running) finish(); }, (PREP_SECONDS + s.duration) * 1000);
+  }
+
+  // ===== 计次训练(只显示目标个数,做完手动点完成) =====
+  function runCount(s) {
+    speak('开始');
+    progress.textContent = EXERCISES[currentKey].name;
+    setCircle(0.85, 0.3);
+    actionEl.textContent = '目标';
+    countEl.textContent = `${s.count} 个`;
+  }
+
+  // ===== 结束 / 停止 =====
   function finish() {
-    running = false;
-    clearAllTimers();
+    running = false; clearAllTimers();
     speak('完成');
     actionEl.textContent = '完成!';
     countEl.textContent = '🎉';
     progress.textContent = '做得好,休息一下';
     setCircle((SCALE_SMALL + SCALE_LARGE) / 2, 0.5);
-    stopBtn.classList.add('hidden');
-    panel.classList.remove('hidden');
-    startBtn.textContent = '再来一组';
+    activeControls.classList.add('hidden');
+    finishControls.classList.remove('hidden');
   }
 
-  function stop() {
-    running = false;
-    clearAllTimers();
-    actionEl.textContent = '已停止';
-    countEl.textContent = '';
-    progress.textContent = '';
-    setCircle((SCALE_SMALL + SCALE_LARGE) / 2, 0.3);
-    stopBtn.classList.add('hidden');
-    panel.classList.remove('hidden');
-    startBtn.textContent = '开始';
-  }
+  // ===== 按钮绑定 =====
+  document.getElementById('setupBack').onclick = showMenu;
+  document.getElementById('startBtn').onclick  = beginFromSetup;
+  doneBtn.onclick = finish;                          // 计次类"完成"
+  stopBtn.onclick = () => { running = false; clearAllTimers(); openSetup(currentKey); };
+  document.getElementById('againBtn').onclick = startCurrent;
+  document.getElementById('menuBtn').onclick  = showMenu;
 
-  startBtn.onclick = start;
-  stopBtn.onclick  = stop;
-
-  // 初始圆圈状态
-  setCircle((SCALE_SMALL + SCALE_LARGE) / 2, 0.3);
+  // 初始
+  showMenu();
 </script>
 </body>
 </html>
