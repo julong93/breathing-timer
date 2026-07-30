@@ -12,12 +12,12 @@
     background: linear-gradient(160deg, #1a2a3a 0%, #0f1720 100%);
     color: #eef4f8;
     display: flex; flex-direction: column; align-items: center; justify-content: center;
-    min-height: 100%; overflow: hidden; user-select: none; padding: 20px;
+    min-height: 100%; overflow-y: auto; user-select: none; padding: 20px;
   }
   .hidden { display: none !important; }
 
   h1 { font-size: 22px; font-weight: 500; opacity: .8; margin-bottom: 30px; letter-spacing: 3px; }
-  h2 { font-size: 24px; font-weight: 600; margin-bottom: 26px; letter-spacing: 2px; }
+  h2 { font-size: 24px; font-weight: 600; margin-bottom: 22px; letter-spacing: 2px; }
 
   /* ===== 主菜单 ===== */
   #menu { display: flex; flex-direction: column; align-items: center; }
@@ -34,10 +34,11 @@
   .menu-item.highlight:active { background: #339cb2; }
 
   /* ===== 设置页 ===== */
-  #setup, #active { display: flex; flex-direction: column; align-items: center; width: 100%; max-width: 360px; }
-  .fields { display: flex; flex-direction: column; gap: 14px; margin-bottom: 28px; width: 100%; }
+  #setup, #active { display: flex; flex-direction: column; align-items: center; width: 100%; max-width: 380px; }
+  .fields { display: flex; flex-direction: column; gap: 12px; margin-bottom: 24px; width: 100%; }
   .field { display: flex; align-items: center; justify-content: space-between; gap: 14px; font-size: 17px; }
   .field > label { opacity: .85; }
+  .section-label { font-size: 14px; opacity: .55; margin: 8px 0 -2px; letter-spacing: 1px; }
   .stepper { display: flex; align-items: center; gap: 8px; }
   .stepper button {
     width: 40px; height: 40px; border-radius: 10px; border: none;
@@ -45,10 +46,26 @@
   }
   .stepper button:active { background: #3a5164; }
   .stepper input {
-    width: 66px; height: 40px; text-align: center; font-size: 19px;
+    width: 60px; height: 40px; text-align: center; font-size: 19px;
     border-radius: 10px; border: 1px solid #3a5164; background: #131f29; color: #eef4f8;
     font-variant-numeric: tabular-nums;
   }
+  .stepper .unit { opacity: .6; font-size: 15px; width: 18px; }
+
+  /* 组合训练:可排序的动作行 */
+  .ex-row {
+    display: flex; align-items: center; gap: 10px;
+    background: #1b2733; border-radius: 12px; padding: 8px 10px;
+  }
+  .ex-order { display: flex; flex-direction: column; gap: 3px; }
+  .ex-order button {
+    width: 30px; height: 20px; border: none; border-radius: 6px;
+    background: #2b3b4a; color: #cfe3ee; font-size: 12px; line-height: 1; cursor: pointer;
+  }
+  .ex-order button:disabled { opacity: .3; cursor: default; }
+  .ex-order button:active:not(:disabled) { background: #3a5164; }
+  .ex-name { flex: 1; font-size: 17px; }
+  .ex-idx { opacity: .5; font-size: 14px; width: 20px; text-align: center; }
 
   /* ===== 运行页 ===== */
   .stage {
@@ -133,17 +150,8 @@
     squat:     { name: '深蹲',     type: 'count',     emoji: '🦵' },
   };
 
-  // 每个训练的可设置项
+  // 单项训练的可设置项
   const FIELDS = {
-    circuit: [
-      { id: 'plankSec',   label: '平板支撑(秒)', def: 60, min: 5, max: 600 },
-      { id: 'pushupCnt',  label: '俯卧撑(个)',   def: 20, min: 1, max: 999 },
-      { id: 'situpCnt',   label: '仰卧起坐(个)', def: 20, min: 1, max: 999 },
-      { id: 'squatCnt',   label: '深蹲(个)',     def: 20, min: 1, max: 999 },
-      { id: 'restAction', label: '动作间休息(秒)', def: 15, min: 0, max: 300 },
-      { id: 'restRound',  label: '圈间休息(秒)',   def: 60, min: 0, max: 600 },
-      { id: 'rounds',     label: '圈数',         def: 3,  min: 1, max: 20 },
-    ],
     breathing: [
       { id: 'sets',     label: '组数',    def: 5, min: 1, max: 99 },
       { id: 'contract', label: '收缩(秒)', def: 5, min: 1, max: 60 },
@@ -154,6 +162,20 @@
     situp:  [ { id: 'count',    label: '个数',     def: 20, min: 1, max: 999 } ],
     squat:  [ { id: 'count',    label: '个数',     def: 20, min: 1, max: 999 } ],
   };
+
+  // 组合训练:四个动作的定义 + 默认顺序
+  const CIRCUIT_ITEMS = {
+    plank:  { name: '平板支撑', kind: 'time',  unit: '秒', def: 60, min: 5, max: 600 },
+    pushup: { name: '俯卧撑',   kind: 'count', unit: '个', def: 20, min: 1, max: 999 },
+    situp:  { name: '仰卧起坐', kind: 'count', unit: '个', def: 20, min: 1, max: 999 },
+    squat:  { name: '深蹲',     kind: 'count', unit: '个', def: 20, min: 1, max: 999 },
+  };
+  const DEFAULT_ORDER = ['situp', 'plank', 'squat', 'pushup'];
+  const CIRCUIT_EXTRA = [
+    { id: 'restAction', label: '动作间休息(秒)', def: 15, min: 0, max: 300 },
+    { id: 'restRound',  label: '圈间休息(秒)',   def: 60, min: 0, max: 600 },
+    { id: 'rounds',     label: '圈数',           def: 3,  min: 1, max: 20 },
+  ];
 
   const PREP_SECONDS = 4;
   const SCALE_SMALL  = 0.45;
@@ -177,9 +199,10 @@
 
   let currentKey = null;
   let currentSettings = {};
+  let circuitOrder = DEFAULT_ORDER.slice();   // 组合训练当前顺序(会被编辑)
   let timers = [];
   let running = false;
-  let doneAction = null;   // "完成"/"下一个" 按钮当前要执行的动作
+  let doneAction = null;
 
   // ===== 语音 =====
   function unlockSpeech() {
@@ -213,12 +236,22 @@
     circle.style.transform = `scale(${scale})`;
   }
 
-  // ===== 设置的保存 / 读取 =====
+  // ===== 存取 =====
   function loadVal(key, id, def) {
     const v = localStorage.getItem(`bt_${key}_${id}`);
     return v === null ? def : parseInt(v, 10);
   }
   function saveVal(key, id, val) { localStorage.setItem(`bt_${key}_${id}`, val); }
+  function loadOrder() {
+    try {
+      const v = JSON.parse(localStorage.getItem('bt_circuit_order'));
+      // 校验:必须是包含全部四个动作的数组
+      if (Array.isArray(v) && v.length === DEFAULT_ORDER.length &&
+          DEFAULT_ORDER.every(k => v.includes(k))) return v;
+    } catch (e) {}
+    return DEFAULT_ORDER.slice();
+  }
+  function saveOrder(order) { localStorage.setItem('bt_circuit_order', JSON.stringify(order)); }
 
   // ===== 视图切换 =====
   function show(view) {
@@ -237,49 +270,151 @@
     menuList.appendChild(btn);
   });
 
+  // ===== 通用数字行 =====
+  function makeNumberRow(label, id, saved, min, max) {
+    const row = document.createElement('div');
+    row.className = 'field';
+    row.innerHTML = `
+      <label>${label}</label>
+      <div class="stepper">
+        <button data-act="dec">−</button>
+        <input type="number" id="fld_${id}" min="${min}" max="${max}" value="${saved}">
+        <button data-act="inc">+</button>
+      </div>`;
+    const input = row.querySelector('input');
+    const clamp = () => {
+      let v = parseInt(input.value, 10);
+      if (isNaN(v) || v < min) v = min;
+      if (v > max) v = max;
+      input.value = v; return v;
+    };
+    row.querySelector('[data-act="dec"]').onclick = () => { input.value = clamp() - 1; clamp(); };
+    row.querySelector('[data-act="inc"]').onclick = () => { input.value = clamp() + 1; clamp(); };
+    input.onchange = clamp;
+    return row;
+  }
+
   // ===== 打开设置页 =====
   function openSetup(key) {
     currentKey = key;
     setupTitle.textContent = EXERCISES[key].name;
     fieldsWrap.innerHTML = '';
-    FIELDS[key].forEach(f => {
-      const saved = loadVal(key, f.id, f.def);
+    if (key === 'circuit') { renderCircuitSetup(); }
+    else {
+      FIELDS[key].forEach(f => {
+        fieldsWrap.appendChild(makeNumberRow(f.label, f.id, loadVal(key, f.id, f.def), f.min, f.max));
+      });
+    }
+    show(setupView);
+  }
+
+  // ===== 组合训练设置页(可排序) =====
+  function renderCircuitSetup() {
+    fieldsWrap.innerHTML = '';
+    circuitOrder = loadOrder();
+
+    // 顶部提示
+    const hint = document.createElement('div');
+    hint.className = 'section-label';
+    hint.textContent = '训练顺序(用 ↑↓ 调整)';
+    fieldsWrap.appendChild(hint);
+
+    // 记录每个动作输入框的临时值,重排时保留
+    circuitOrder.forEach((exKey, idx) => {
+      const item = CIRCUIT_ITEMS[exKey];
+      const saved = loadVal('circuit', exKey, item.def);
       const row = document.createElement('div');
-      row.className = 'field';
+      row.className = 'ex-row';
       row.innerHTML = `
-        <label>${f.label}</label>
+        <div class="ex-order">
+          <button data-act="up" ${idx === 0 ? 'disabled' : ''}>▲</button>
+          <button data-act="down" ${idx === circuitOrder.length - 1 ? 'disabled' : ''}>▼</button>
+        </div>
+        <span class="ex-idx">${idx + 1}</span>
+        <span class="ex-name">${item.name}</span>
         <div class="stepper">
           <button data-act="dec">−</button>
-          <input type="number" id="fld_${f.id}" min="${f.min}" max="${f.max}" value="${saved}">
+          <input type="number" id="cir_${exKey}" min="${item.min}" max="${item.max}" value="${saved}">
           <button data-act="inc">+</button>
+          <span class="unit">${item.unit}</span>
         </div>`;
       const input = row.querySelector('input');
       const clamp = () => {
         let v = parseInt(input.value, 10);
-        if (isNaN(v) || v < f.min) v = f.min;
-        if (v > f.max) v = f.max;
+        if (isNaN(v) || v < item.min) v = item.min;
+        if (v > item.max) v = item.max;
         input.value = v; return v;
       };
       row.querySelector('[data-act="dec"]').onclick = () => { input.value = clamp() - 1; clamp(); };
       row.querySelector('[data-act="inc"]').onclick = () => { input.value = clamp() + 1; clamp(); };
       input.onchange = clamp;
+      row.querySelector('[data-act="up"]').onclick   = () => moveCircuit(idx, -1);
+      row.querySelector('[data-act="down"]').onclick = () => moveCircuit(idx, +1);
       fieldsWrap.appendChild(row);
     });
-    show(setupView);
+
+    // 休息 / 圈数
+    const extraLabel = document.createElement('div');
+    extraLabel.className = 'section-label';
+    extraLabel.textContent = '休息与圈数';
+    fieldsWrap.appendChild(extraLabel);
+    CIRCUIT_EXTRA.forEach(f => {
+      fieldsWrap.appendChild(makeNumberRow(f.label, f.id, loadVal('circuit', f.id, f.def), f.min, f.max));
+    });
+  }
+
+  // 重排:先把当前输入框的值存下来,交换顺序,再重绘
+  function moveCircuit(idx, dir) {
+    // 保存当前所有动作数量
+    circuitOrder.forEach(exKey => {
+      const input = document.getElementById(`cir_${exKey}`);
+      if (input) saveVal('circuit', exKey, parseInt(input.value, 10) || CIRCUIT_ITEMS[exKey].def);
+    });
+    // 保存休息/圈数
+    CIRCUIT_EXTRA.forEach(f => {
+      const input = document.getElementById(`fld_${f.id}`);
+      if (input) saveVal('circuit', f.id, parseInt(input.value, 10) || f.def);
+    });
+    const j = idx + dir;
+    if (j < 0 || j >= circuitOrder.length) return;
+    [circuitOrder[idx], circuitOrder[j]] = [circuitOrder[j], circuitOrder[idx]];
+    saveOrder(circuitOrder);
+    renderCircuitSetup();
   }
 
   // ===== 从设置页开始 =====
   function beginFromSetup() {
     unlockSpeech();
     currentSettings = {};
-    FIELDS[currentKey].forEach(f => {
-      const input = document.getElementById(`fld_${f.id}`);
-      let v = parseInt(input.value, 10);
-      if (isNaN(v) || v < f.min) v = f.min;
-      if (v > f.max) v = f.max;
-      currentSettings[f.id] = v;
-      saveVal(currentKey, f.id, v);
-    });
+    if (currentKey === 'circuit') {
+      circuitOrder.forEach(exKey => {
+        const input = document.getElementById(`cir_${exKey}`);
+        const item = CIRCUIT_ITEMS[exKey];
+        let v = parseInt(input.value, 10);
+        if (isNaN(v) || v < item.min) v = item.min;
+        if (v > item.max) v = item.max;
+        currentSettings[exKey] = v;
+        saveVal('circuit', exKey, v);
+      });
+      CIRCUIT_EXTRA.forEach(f => {
+        const input = document.getElementById(`fld_${f.id}`);
+        let v = parseInt(input.value, 10);
+        if (isNaN(v) || v < f.min) v = f.min;
+        if (v > f.max) v = f.max;
+        currentSettings[f.id] = v;
+        saveVal('circuit', f.id, v);
+      });
+      saveOrder(circuitOrder);
+    } else {
+      FIELDS[currentKey].forEach(f => {
+        const input = document.getElementById(`fld_${f.id}`);
+        let v = parseInt(input.value, 10);
+        if (isNaN(v) || v < f.min) v = f.min;
+        if (v > f.max) v = f.max;
+        currentSettings[f.id] = v;
+        saveVal(currentKey, f.id, v);
+      });
+    }
     startCurrent();
   }
 
@@ -359,25 +494,19 @@
 
   // ===== 组合训练 =====
   function runCircuit(s) {
-    // 构建整套流程(动作 + 休息)
-    const order = [
-      { kind: 'time',  amount: s.plankSec,  name: '平板支撑' },
-      { kind: 'count', amount: s.pushupCnt, name: '俯卧撑' },
-      { kind: 'count', amount: s.situpCnt,  name: '仰卧起坐' },
-      { kind: 'count', amount: s.squatCnt,  name: '深蹲' },
-    ];
     const plan = [];
+    const order = circuitOrder;
     for (let r = 1; r <= s.rounds; r++) {
-      order.forEach((o, i) => {
-        plan.push({ type: 'exercise', kind: o.kind, amount: o.amount, name: o.name, round: r });
+      order.forEach((exKey, i) => {
+        const item = CIRCUIT_ITEMS[exKey];
+        plan.push({ type: 'exercise', kind: item.kind, amount: s[exKey], name: item.name, round: r });
         if (i < order.length - 1) {
-          if (s.restAction > 0) plan.push({ type: 'rest', secs: s.restAction, nextName: order[i + 1].name });
+          if (s.restAction > 0) plan.push({ type: 'rest', secs: s.restAction, nextName: CIRCUIT_ITEMS[order[i + 1]].name });
         } else if (r < s.rounds && s.restRound > 0) {
-          plan.push({ type: 'rest', secs: s.restRound, nextName: `第 ${r + 1} 圈 · ${order[0].name}` });
+          plan.push({ type: 'rest', secs: s.restRound, nextName: `第 ${r + 1} 圈 · ${CIRCUIT_ITEMS[order[0]].name}` });
         }
       });
     }
-    // 准备
     actionEl.textContent = '准备';
     setCircle(0.7, 0.3);
     progress.textContent = `组合训练 · 共 ${s.rounds} 圈`;
@@ -402,7 +531,6 @@
       return;
     }
 
-    // 动作
     progress.textContent = `第 ${item.round}/${s.rounds} 圈 · ${item.name}`;
     if (item.kind === 'time') {
       doneBtn.classList.add('hidden');
@@ -413,7 +541,6 @@
       countdown(item.amount, n => { countEl.textContent = n > 0 ? n : ''; });
       later(() => runCircuitStep(plan, i + 1, s), item.amount * 1000);
     } else {
-      // 计次:显示目标,等用户点"下一个"
       speak(item.name);
       actionEl.textContent = item.name;
       setCircle(0.85, 0.3, false);
