@@ -153,9 +153,11 @@
   // 单项训练的可设置项
   const FIELDS = {
     breathing: [
-      { id: 'sets',     label: '组数',    def: 5, min: 1, max: 99 },
+      { id: 'reps',     label: '每组次数', def: 5, min: 1, max: 99 },
+      { id: 'sets',     label: '组数',    def: 3, min: 1, max: 20 },
       { id: 'contract', label: '收缩(秒)', def: 5, min: 1, max: 60 },
       { id: 'release',  label: '放开(秒)', def: 5, min: 1, max: 60 },
+      { id: 'rest',     label: '组间休息(秒)', def: 30, min: 0, max: 600 },
     ],
     plank:  [ { id: 'duration', label: '时长(秒)', def: 60, min: 5, max: 600 } ],
     pushup: [ { id: 'count',    label: '个数',     def: 20, min: 1, max: 999 } ],
@@ -435,33 +437,52 @@
     else if (type === 'circuit') runCircuit(currentSettings);
   }
 
-  // ===== 呼吸训练 =====
+  // ===== 呼吸训练(每组 N 次 × M 组 + 组间休息) =====
   function runBreathing(s) {
     actionEl.textContent = '准备';
     setCircle((SCALE_SMALL + SCALE_LARGE) / 2, 0.3);
     progress.textContent = `呼吸训练 · 共 ${s.sets} 组`;
     countdown(PREP_SECONDS, n => { countEl.textContent = n > 0 ? n : ''; });
-    later(() => runSet(1, s), PREP_SECONDS * 1000);
+    later(() => runBreathRep(1, 1, s), PREP_SECONDS * 1000);
   }
-  function runSet(index, s) {
+  // 第 set 组的第 rep 次呼吸
+  function runBreathRep(set, rep, s) {
     if (!running) return;
-    progress.textContent = `第 ${index} / ${s.sets} 组`;
+    progress.textContent = `第 ${set}/${s.sets} 组 · 第 ${rep}/${s.reps} 次`;
+    // 收缩
     speak('收缩');
     actionEl.textContent = '收缩';
-    setCircle(SCALE_SMALL, s.contract);
+    setCircle(SCALE_SMALL, s.contract, false);
     countdown(s.contract, n => { countEl.textContent = n > 0 ? n : ''; });
+    // 放开
     later(() => {
       if (!running) return;
       speak('放开');
       actionEl.textContent = '放开';
-      setCircle(SCALE_LARGE, s.release);
+      setCircle(SCALE_LARGE, s.release, false);
       countdown(s.release, n => { countEl.textContent = n > 0 ? n : ''; });
     }, s.contract * 1000);
+    // 本次结束 → 下一次 / 组间休息 / 完成
     later(() => {
       if (!running) return;
-      if (index < s.sets) runSet(index + 1, s);
-      else finish();
+      if (rep < s.reps) {
+        runBreathRep(set, rep + 1, s);
+      } else if (set < s.sets) {
+        restBetween(set, s);
+      } else {
+        finish();
+      }
     }, (s.contract + s.release) * 1000);
+  }
+  // 组间休息,结束后进入下一组
+  function restBetween(set, s) {
+    if (s.rest <= 0) { runBreathRep(set + 1, 1, s); return; }
+    speak('休息');
+    actionEl.textContent = '休息';
+    setCircle(0.6, 0.3, true);
+    progress.textContent = `休息 · 下一组:第 ${set + 1}/${s.sets} 组`;
+    countdown(s.rest, n => { countEl.textContent = n > 0 ? n : ''; });
+    later(() => { if (running) runBreathRep(set + 1, 1, s); }, s.rest * 1000);
   }
 
   // ===== 平板支撑(单项) =====
